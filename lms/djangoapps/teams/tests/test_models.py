@@ -11,7 +11,7 @@ from datetime import datetime
 import ddt
 import pytz
 import six
-from mock import Mock
+from mock import Mock, patch
 from opaque_keys.edx.keys import CourseKey
 
 from course_modes.models import CourseMode
@@ -123,6 +123,20 @@ class CourseTeamTest(SharedModuleStoreTestCase):
 
         with self.assertRaises(AddToIncompatibleTeamError):
             self.masters_team.add_user(self.audit_learner)
+
+    def test_defaults(self):
+        field = CourseTeam._meta.get_field('last_activity_at')
+        default_date = datetime(1978, 1, 1)
+        mock_now = lambda: default_date
+        with patch.object(field, 'default', new=mock_now):
+            team = CourseTeam.create(
+                name='foo',
+                course_id='sedx/the-course/1',
+                description='Import from csv',
+                topic_id=TEAMSET_1_ID,
+                organization_protected=True
+            )
+        self.assertEqual(default_date, team.last_activity_at)
 
 
 @ddt.ddt
