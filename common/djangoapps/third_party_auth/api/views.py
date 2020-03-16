@@ -16,6 +16,7 @@ from rest_framework import exceptions, permissions, status, throttling
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from social_django.models import UserSocialAuth
 
 from openedx.core.lib.api.authentication import (
     BearerAuthentication,

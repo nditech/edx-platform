@@ -6,10 +6,10 @@ from mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.dispatch import receiver
 
 from lms.djangoapps.program_enrollments.management.commands.tests.utils import UserSocialAuthFactory
 from lms.djangoapps.verify_student.models import SSOVerification
+from lms.djangoapps.verify_student.tests.factories import SSOVerificationFactory
 from third_party_auth.tests.testutil import TestCase
 
 
@@ -40,13 +40,11 @@ class TestBackfillSSOVerificationsCommand(TestCase):
         with self.assertRaises(CommandError):
             call_command('backfill_sso_verifications_for_old_account_links', '--provider-slug', 'gatech')
 
-    def test_existing_provider(self):
-        call_command('backfill_sso_verifications_for_old_account_links', '--provider-slug', self.provider.provider_id)
-       
     def test_sso_updated_single_user(self):
         self.assertTrue(SSOVerification.objects.count() == 0)
         call_command('backfill_sso_verifications_for_old_account_links', '--provider-slug', self.provider.provider_id)
         self.assertTrue(SSOVerification.objects.count() > 0)
+        self.assertEqual(SSOVerification.objects.get().user.id, self.user1.id)
 
     def test_performance(self):
         # TODO
@@ -58,3 +56,19 @@ class TestBackfillSSOVerificationsCommand(TestCase):
         with patch('openedx.core.djangoapps.signals.signals.LEARNER_NOW_VERIFIED.send_robust') as mock_signal:
             call_command('backfill_sso_verifications_for_old_account_links', '--provider-slug', self.provider.provider_id)
         self.assertEqual(mock_signal.call_count, 1)
+
+    def test_fine_with_multiple_verification_records(self):
+        """
+        Testing there are no issues with excluding learners with multiple sso verifications
+        """
+        SSOVerificationFactory(
+            status='approved',
+            user=self.user1,
+        )
+        SSOVerificationFactory(
+            status='approved',
+            user=self.user1,
+        )
+        self.assertEqual(SSOVerification.objects.count(), 2)
+        call_command('backfill_sso_verifications_for_old_account_links', '--provider-slug', self.provider.provider_id)
+        self.assertEqual(SSOVerification.objects.count(), 2)

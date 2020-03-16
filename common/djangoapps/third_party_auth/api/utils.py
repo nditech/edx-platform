@@ -2,8 +2,6 @@
 Shareable utilities for third party auth api functions
 """
 
-from social_django.models import UserSocialAuth
-
 
 def filter_user_social_auth_queryset_by_provider(query_set, provider):
     """
@@ -15,15 +13,17 @@ def filter_user_social_auth_queryset_by_provider(query_set, provider):
     Returns:
         QuerySet[UserSocialAuth]
     """
-    query_set = query_set.filter(provider=provider.backend_name)
+    # Note: When using multi-IdP backend, the provider column isn't
+    # enough to identify a specific backend
+    filtered_query_set = query_set.filter(provider=provider.backend_name)
 
-
-    # build our query filters
-    # When using multi-IdP backend, we only retrieve the ones that are for current IdP.
-    # test if the current provider has a slug
-    uid = provider.get_social_auth_uid('uid')
-    if uid != 'uid':
+    # Test if the current provider has a slug which it appends to
+    # uids; these can be used to identify the backend more
+    # specifically than the provider's backend
+    fake_uid = 'uid'
+    uid = provider.get_social_auth_uid(fake_uid)
+    if uid != fake_uid:
         # if yes, we add a filter for the slug on uid column
-        query_set = query_set.filter(uid__startswith=uid[:-3])
+        filtered_query_set = filtered_query_set.filter(uid__startswith=uid[:-len(fake_uid)])
 
-    return query_set
+    return filtered_query_set

@@ -38,6 +38,9 @@ class Command(BaseCommand):
             required=True,
         )
 
+    def filter_user_social_auth_queryset_by_ssoverification_existence(self, query_set):
+        return query_set.filter(user__ssoverification__isnull=True)
+
     def handle(self, *args, **options):
         provider_slug = options.get('provider_slug', None)
 
@@ -48,14 +51,14 @@ class Command(BaseCommand):
 
         query_set = UserSocialAuth.objects.select_related('user__profile')
         query_set = filter_user_social_auth_queryset_by_provider(query_set, provider)
+        query_set = self.filter_user_social_auth_queryset_by_ssoverification_existence(query_set)
         for user_social_auth in query_set:
-            if not user_social_auth.user.ssoverification_set.exists():
-                verification = SSOVerification.objects.create(
-                    user=user_social_auth.user,
-                    status="approved",
-                    name=user_social_auth.user.profile.name,
-                    identity_provider_type=provider.full_class_name,
-                    identity_provider_slug=provider.slug,
-                )
-                # Send a signal so users who have already passed their courses receive credit
-                verification.send_approval_signal(provider.slug)
+            verification = SSOVerification.objects.create(
+                user=user_social_auth.user,
+                status="approved",
+                name=user_social_auth.user.profile.name,
+                identity_provider_type=provider.full_class_name,
+                identity_provider_slug=provider.slug,
+            )
+            # Send a signal so users who have already passed their courses receive credit
+            verification.send_approval_signal(provider.slug)
