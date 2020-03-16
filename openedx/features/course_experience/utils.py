@@ -136,6 +136,16 @@ def get_course_outline_block_tree(request, course_id, user=None):
             block['scored'] = False
             return False
 
+    def recurse_num_graded_problems(block):
+        """
+        Marks each block with the number of graded problems below (and including) it as 'num_graded_problems'
+        """
+        num_graded_problems = 1 if block.get('type') == 'problem' and block.get('graded') else 0
+        num_graded_problems += sum(recurse_num_graded_problems(child) for child in block.get('children', []))
+
+        block['num_graded_problems'] = num_graded_problems
+        return num_graded_problems
+
     def recurse_mark_auth_denial(block):
         """
         Mark this block as 'scored' if any of its descendents are 'scored' (that is, 'has_score' and 'weight' > 0).
@@ -192,6 +202,7 @@ def get_course_outline_block_tree(request, course_id, user=None):
     if course_outline_root_block:
         populate_children(course_outline_root_block, all_blocks['blocks'])
         recurse_mark_scored(course_outline_root_block)
+        recurse_num_graded_problems(course_outline_root_block)
         recurse_mark_auth_denial(course_outline_root_block)
         if user:
             set_last_accessed_default(course_outline_root_block)
